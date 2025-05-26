@@ -2,7 +2,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const { MongoClient, ObjectId } = require('mongodb');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
@@ -12,7 +12,10 @@ const JWT_SECRET = process.env.JWT_SECRET || 'secreto_temporal';
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017';
 
 // Middleware
-app.use(cors());
+// En tu backend
+app.use(cors({
+    origin: ['https://magic-vault-deploy-chawy11s-projects.vercel.app', 'http://localhost:4200']
+}));
 app.use(bodyParser.json());
 
 // Conexión a MongoDB
