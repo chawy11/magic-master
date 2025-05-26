@@ -4,7 +4,8 @@
 
 export const environment = {
   production: false,
-  urlBase: 'https://api.scryfall.com'
+  urlBase: 'https://api.scryfall.com',
+  apiUrl: 'http://localhost:3000/api',
 };
 
 /*

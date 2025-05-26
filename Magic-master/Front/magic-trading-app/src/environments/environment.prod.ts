@@ -1,4 +1,6 @@
 export const environment = {
   production: true,
-  urlBase: 'https://api.scryfall.com'
+  urlBase: 'https://api.scryfall.com',
+  apiUrl: 'magic-master-production.up.railway.app'
+
 };
