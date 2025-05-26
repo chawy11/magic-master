@@ -1,0 +1,67 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Magic Vault</ion-title>
+    <ion-buttons slot="end">
+      <ion-button id="perfil-trigger">
+        <ion-icon name="person-circle-outline"></ion-icon>
+      </ion-button>
+
+      <ion-popover #perfilPopover trigger="perfil-trigger" triggerAction="click">
+        <ng-template>
+          <ion-list>
+            <ion-item button (click)="irAPerfil(perfilPopover)">
+              <ion-icon name="person-outline" slot="start"></ion-icon>
+              <ion-label>Mi Perfil</ion-label>
+            </ion-item>
+            <ion-item button (click)="cerrarSesion(perfilPopover)">
+              <ion-icon name="log-out-outline" slot="start"></ion-icon>
+              <ion-label>Cerrar Sesión</ion-label>
+            </ion-item>
+          </ion-list>
+        </ng-template>
+      </ion-popover>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <div class="container">
+    <h1 class="ion-text-center">¡Bienvenido a Magic Vault!</h1>
+
+    <div class="search-container">
+      <ion-item>
+        <ion-input [(ngModel)]="nombreCarta"
+                   type="text"
+                   placeholder="Buscar carta"
+                   (ionInput)="onInputChange($event.detail.value ?? '')"
+                   (keyup.enter)="buscarCarta($event)">
+        </ion-input>
+        <ion-icon name="search" slot="start"></ion-icon>
+      </ion-item>
+
+      @if (searchResults.length > 0 && !loading) {
+        <ion-list>
+          @for (carta of searchResults; track carta.id) {
+            <ion-item
+              (click)="seleccionarCarta(carta)"
+              (mouseenter)="mostrarPreview(carta, $event)"
+              (mouseleave)="ocultarPreview()">
+              <ion-label>{{ carta.name }}</ion-label>
+            </ion-item>
+          }
+        </ion-list>
+      }
+
+      @if (loading) {
+        <ion-note color="primary">Cargando...</ion-note>
+      }
+    </div>
+  </div>
+
+  @if (cartaPreview) {
+    <div class="card-preview" [style.top.px]="previewPosition.top" [style.left.px]="previewPosition.left">
+      <img [src]="cartaPreview.image_uris?.small || cartaPreview.card_faces?.[0]?.image_uris?.small" alt="{{ cartaPreview.name }}">
+    </div>
+  }
+
+</ion-content>

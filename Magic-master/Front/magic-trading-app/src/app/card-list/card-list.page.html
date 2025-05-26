@@ -1,0 +1,60 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-button routerLink="/home">
+        <ion-icon name="arrow-back-outline"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+    <ion-title>Resultados de búsqueda</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="irAPerfil()">
+        <ion-icon name="person-circle-outline"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  @if (loading) {
+    <div class="loading-spinner">
+      <ion-spinner name="crescent"></ion-spinner>
+    </div>
+  }
+
+  @if (!loading && cartas.length > 0) {
+    <ion-grid>
+      <ion-row>
+        @for (carta of cartas; track carta.id) {
+          <ion-col size="6" size-md="4" size-lg="2" size-xl="2">
+            <ion-card class="card" (click)="irADetalle(carta)">
+              <div class="options-button" (click)="mostrarOpciones(carta, $event)">
+                <ion-icon name="ellipsis-horizontal-outline"></ion-icon>
+              </div>
+
+              <img [src]="carta.image_uris?.normal" alt="{{ carta.name }}" />
+
+              <ion-card-header>
+                <div class="card-header-content">
+                  <ion-card-title>{{ carta.name }}</ion-card-title>
+                </div>
+                <p class="card-price">
+                  @if (carta.prices?.eur) {
+                    {{ carta.prices.eur }} €
+                  } @else {
+                    No disponible
+                  }
+                </p>
+              </ion-card-header>
+            </ion-card>
+          </ion-col>
+        }
+      </ion-row>
+    </ion-grid>
+  }
+
+  @if (!loading && cartas.length === 0) {
+    <div class="no-results">
+      <p>No se encontraron cartas.</p>
+    </div>
+  }
+</ion-content>

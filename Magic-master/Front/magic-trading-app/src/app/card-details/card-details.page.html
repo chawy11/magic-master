@@ -1,0 +1,45 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-button routerLink="/home">
+        <ion-icon name="arrow-back-outline"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+    <ion-title>{{ carta?.name }}</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="irAPerfil()">
+        <ion-icon name="person-circle-outline"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  @if (carta) {
+    <div class="card-detail-container">
+      <div class="card-content">
+        <!-- Imagen de la carta -->
+        <img [src]="carta.image_uris?.normal" alt="{{ carta.name }}" class="card-image">
+
+        <!-- Contenedor de texto + botón de opciones -->
+        <div class="text-and-options">
+          <!-- Botón de opciones (ahora dentro de este contenedor) -->
+          <div class="options-button" (click)="mostrarOpciones($event)">
+            <ion-icon name="ellipsis-horizontal-outline"></ion-icon>
+          </div>
+
+          <!-- Texto de la carta -->
+          <div class="card-text">
+            <h2>{{ carta.name }}</h2>
+            <p class="card-description">{{ carta.oracle_text }}</p>
+            @if (carta.prices?.eur) {
+              <p class="price">Precio: {{ carta.prices.eur }} €</p>
+            } @else {
+              <p class="price">Precio no disponible</p>
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+  }
+</ion-content>

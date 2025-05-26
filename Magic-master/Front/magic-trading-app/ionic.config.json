@@ -1,0 +1,7 @@
+{
+  "name": "magic-trading-app",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "angular-standalone"
+}

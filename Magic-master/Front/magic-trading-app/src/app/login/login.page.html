@@ -1,0 +1,47 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Iniciar Sesión</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <div class="content">
+    <div class="form-container">
+      <img class="logo-page" src="../../assets/images/og-image.png" alt="logo">
+      <form [formGroup]="loginForm" (ngSubmit)="onSubmit()">
+        <ion-item class="first-item">
+          <ion-label position="floating">Usuario</ion-label>
+          <ion-input type="text" formControlName="usuario" (blur)="onBlur('usuario')"></ion-input>
+        </ion-item>
+        <ion-note *ngIf="mostrarError('usuario')" color="danger">
+          <span *ngIf="loginForm.get('usuario')?.hasError('required')">El usuario es obligatorio.</span>
+        </ion-note>
+
+        <div class="middle-block">
+          <ion-item>
+            <ion-label position="floating">Contraseña</ion-label>
+            <ion-input type="password" formControlName="password" (blur)="onBlur('password')"></ion-input>
+          </ion-item>
+          <ion-note *ngIf="mostrarError('password')" color="danger">
+            <span *ngIf="loginForm.get('password')?.hasError('required')">La contraseña es obligatoria.</span>
+          </ion-note>
+        </div>
+
+        <div class="end-form">
+          <ion-button type="submit" class="login-button">
+            Iniciar Sesión
+          </ion-button>
+          <p class="floating-text w-full">
+            ¿No tienes una cuenta? &nbsp; <a routerLink="/registro">Regístrate</a>
+          </p>
+        </div>
+      </form>
+
+      @if (mensajeError) {
+        <ion-note color="danger" class="ion-text-center ion-margin-top ion-padding-bottom">
+          {{ mensajeError }}
+        </ion-note>
+      }
+    </div>
+  </div>
+</ion-content>

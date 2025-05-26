@@ -1,0 +1,63 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Registro</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <div class="content">
+    <div class="form-container">
+      <img class="logo-page" src="../../assets/images/og-image.png"  alt="logo">
+      <form [formGroup]="registroForm" (ngSubmit)="onSubmit()">
+        <ion-item class="first-item">
+          <ion-label position="floating">Usuario </ion-label>
+          <ion-input type="text" formControlName="usuario" (blur)="onBlur('usuario')"></ion-input>
+        </ion-item>
+        <ion-note *ngIf="mostrarError('usuario')" color="danger">
+          <span *ngIf="registroForm.get('usuario')?.hasError('required')">El usuario es obligatorio.</span>
+          <span *ngIf="registroForm.get('usuario')?.hasError('minlength')">El usuario debe tener al menos 5 caracteres.</span>
+          <span *ngIf="errorMessage['usuario']">{{ errorMessage['usuario'] }}</span>
+        </ion-note>
+
+        <div class="middle-block">
+          <ion-item>
+            <ion-label position="floating">Email</ion-label>
+            <ion-input type="email" formControlName="email" (blur)="onBlur('email')"></ion-input>
+          </ion-item>
+          <ion-note *ngIf="mostrarError('email')" color="danger">
+            <span *ngIf="registroForm.get('email')?.hasError('required')">El email es obligatorio.</span>
+            <span *ngIf="registroForm.get('email')?.hasError('email')">Introduce un email válido.</span>
+            <span *ngIf="errorMessage['email']">{{ errorMessage['email'] }}</span>
+          </ion-note>
+
+          <ion-item>
+            <ion-label position="floating">Contraseña</ion-label>
+            <ion-input type="password" formControlName="password" (blur)="onBlur('password')"></ion-input>
+          </ion-item>
+          <ion-note *ngIf="mostrarError('password')" color="danger">
+            <span *ngIf="registroForm.get('password')?.hasError('required')">La contraseña es obligatoria.</span>
+            <span *ngIf="registroForm.get('password')?.hasError('minlength')">La contraseña debe tener al menos 6 caracteres.</span>
+            <span *ngIf="registroForm.get('password')?.hasError('passwordStrength')">La contraseña debe tener al menos una mayúscula, una minúscula, un número y un carácter especial.</span>
+          </ion-note>
+
+        </div>
+
+        <div class="end-form">
+          <ion-button  type="submit" class="register-button">
+            Registrarse
+          </ion-button>
+          <p class="floating-text w-full">
+            ¿Ya tienes una cuenta? &nbsp; <a routerLink="/login"> Inicia sesión</a>
+          </p>
+        </div>
+
+      </form>
+
+      <ion-note *ngIf="errorMessage['general']" color="danger" class="ion-text-center ion-margin-top">
+        {{ errorMessage['general'] }}
+      </ion-note>
+
+    </div>
+  </div>
+
+</ion-content>

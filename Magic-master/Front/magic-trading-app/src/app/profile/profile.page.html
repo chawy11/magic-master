@@ -1,0 +1,474 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-button routerLink="/home">
+        <ion-icon slot="icon-only" name="arrow-back"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+    <ion-title>Perfil de {{ viewedUsername }}</ion-title>
+
+    @if (isOwnProfile) {
+      <ion-buttons slot="end">
+        <ion-button (click)="shareProfile()">
+          <ion-icon slot="icon-only" name="share"></ion-icon>
+        </ion-button>
+      </ion-buttons>
+    }
+  </ion-toolbar>
+</ion-header>
+
+<ion-modal [isOpen]="transactionMode" (ionModalDidDismiss)="cancelTransactionMode()">
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>Proponer transacción</ion-title>
+        <ion-buttons slot="end">
+          <ion-button (click)="cancelTransactionMode()">
+            <ion-icon name="close"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+
+    <ion-content>
+      <div class="ion-padding">
+        <h2>Selecciona cartas</h2>
+
+        @if (theirMatchingCards.length > 0) {
+          <h3>Cartas que quieres de {{ viewedUsername }}</h3>
+          <ion-list>
+            @for (card of theirMatchingCards; track card.cardId) {
+              <ion-item
+                (mouseenter)="mostrarPreview(card, $event)"
+                (mouseleave)="ocultarPreview()">
+                <ion-checkbox [(ngModel)]="card.selected"></ion-checkbox>
+                <ion-label class="ion-padding-start">
+                  <h2>{{ card.cardName }}</h2>
+                  <p>Edición: {{ card.edition || 'No especificada' }}</p>
+                  <p>Precio: {{ card.price ? (card.price + ' €') : 'N/A' }}</p>
+                </ion-label>
+              </ion-item>
+            }
+          </ion-list>
+        }
+
+        @if (myMatchingCards.length > 0) {
+          <h3>Cartas que ofreces a {{ viewedUsername }}</h3>
+          <ion-list>
+            @for (card of myMatchingCards; track card.cardId) {
+              <ion-item
+                (mouseenter)="mostrarPreview(card, $event)"
+                (mouseleave)="ocultarPreview()">
+                <ion-checkbox [(ngModel)]="card.selected"></ion-checkbox>
+                <ion-label class="ion-padding-start">
+                  <h2>{{ card.cardName }}</h2>
+                  <p>Edición: {{ card.edition || 'No especificada' }}</p>
+                  <p>Precio: {{ card.price ? (card.price + ' €') : 'N/A' }}</p>
+                </ion-label>
+              </ion-item>
+            }
+          </ion-list>
+        }
+
+        @if (theirMatchingCards.length === 0 && myMatchingCards.length === 0) {
+          <div class="ion-text-center">
+            <p>No hay cartas disponibles para un intercambio</p>
+          </div>
+        }
+
+        <div class="ion-padding-top">
+          <ion-grid>
+            <ion-row>
+              <ion-col>
+                <ion-button expand="block" color="primary" (click)="submitTransaction()" [disabled]="!canSubmitTransaction()">
+                  Proponer transacción
+                </ion-button>
+              </ion-col>
+              <ion-col>
+                <ion-button expand="block" color="medium" (click)="cancelTransactionMode()">
+                  Cancelar
+                </ion-button>
+              </ion-col>
+            </ion-row>
+          </ion-grid>
+        </div>
+      </div>
+    </ion-content>
+  </ng-template>
+</ion-modal>
+
+<ion-segment [(ngModel)]="activeSegment" (ionChange)="segmentChanged($event)">
+  <ion-segment-button value="wants">
+    <ion-label>Wants</ion-label>
+  </ion-segment-button>
+  <ion-segment-button value="sells">
+    <ion-label>Sells</ion-label>
+  </ion-segment-button>
+  <ion-segment-button value="transactions">
+    <ion-label>Transacciones</ion-label>
+  </ion-segment-button>
+  <ion-segment-button value="reviews">
+    <ion-label>Valoraciones</ion-label>
+  </ion-segment-button>
+</ion-segment>
+
+@if (!isOwnProfile) {
+  <ion-card>
+    <ion-card-content>
+      <ion-card-header>
+        <ion-card-title>Coincidencias</ion-card-title>
+      </ion-card-header>
+      <div class="organize-matches">
+        <div class="wants-sells-column">
+          <p>
+            <strong>Wants:</strong> {{ matches.wantsMatches }}/{{ matches.wantsTotal }}
+            @if (matches.wantsTotal > 0) {
+              ({{ (matches.wantsMatches / matches.wantsTotal * 100) | number:'1.0-0' }}%)
+            }
+          </p>
+          <p>
+            <strong>Sells:</strong> {{ matches.sellsMatches }}/{{ matches.sellsTotal }}
+            @if (matches.sellsTotal > 0) {
+              ({{ (matches.sellsMatches / matches.sellsTotal * 100) | number:'1.0-0' }}%)
+            }
+          </p>
+        </div>
+        @if (!isOwnProfile && (matches.wantsMatches > 0 || matches.sellsMatches > 0)) {
+          <ion-button
+            expand="block"
+            color="primary"
+            class="ion-margin"
+            (click)="prepareTransaction()">
+            Proponer transacción
+          </ion-button>
+        }
+      </div>
+    </ion-card-content>
+  </ion-card>
+}
+
+<ion-content class="ion-padding main-content">
+  @if (isOwnProfile) {
+    <div class="search-container">
+      <ion-searchbar [(ngModel)]="searchTerm" (ionInput)="searchCards()" placeholder="Añadir cartas..."></ion-searchbar>
+
+      @if (searchResults.length > 0) {
+        <div class="search-results">
+          <ion-list>
+            @for (card of searchResults; track card.id) {
+              <ion-item
+                (click)="activeSegment === 'wants' ? addCardToWants(card) : addCardToSells(card)"
+                (mouseenter)="mostrarPreview(card, $event)"
+                (mouseleave)="ocultarPreview()"
+                class="card-item">
+                <ion-label>{{ card.name }}</ion-label>
+              </ion-item>
+            }
+          </ion-list>
+        </div>
+      }
+
+      @if (loading) {
+        <div class="ion-text-center">
+          <p>Cargando resultados...</p>
+        </div>
+      }
+    </div>
+  }
+
+  @if (activeSegment === 'wants') {
+    <h2>Lista de Wants</h2>
+    @if (wantsList.length > 0) {
+      <div class="user-transactions">
+        @for (card of wantsList; track card.cardId) {
+          <ion-item class="transaction-item" (mouseenter)="mostrarPreview(card, $event)" (mouseleave)="ocultarPreview()">
+            <ion-label>
+              <h2>{{ card.cardName }}</h2>
+              <p>Cantidad: {{ card.quantity || 1 }}</p>
+              <p>Edición: {{ card.edition || 'No especificada' }}</p>
+              <p>Idioma: {{ card.language || 'English' }}</p>
+              <p>Foil: {{ card.foil ? 'Sí' : 'No' }}</p>
+              <p>Precio: {{ card.price ? (card.price + ' €') : 'N/A' }}</p>
+            </ion-label>
+            @if (isOwnProfile) {
+              <div class="card-actions">
+                <ion-button fill="clear" size="small" (click)="editCard(card, 'wants')">
+                  <ion-icon slot="icon-only" name="create"></ion-icon>
+                </ion-button>
+                <ion-button fill="clear" size="small" color="danger" (click)="removeCardFromWants(card.cardId)">
+                  <ion-icon slot="icon-only" name="trash"></ion-icon>
+                </ion-button>
+              </div>
+            }
+          </ion-item>
+        }
+      </div>
+    } @else {
+      <div class="ion-text-center ion-padding">
+        <p>No hay cartas en la lista de Wants</p>
+      </div>
+    }
+  }
+
+  @if (activeSegment === 'sells') {
+    <h2>Lista de Sells</h2>
+    @if (sellsList.length > 0) {
+      <div class="user-transactions">
+        @for (card of sellsList; track card.cardId) {
+          <ion-item class="transaction-item" (mouseenter)="mostrarPreview(card, $event)" (mouseleave)="ocultarPreview()">
+            <ion-label>
+              <h2>{{ card.cardName }}</h2>
+              <p>Cantidad: {{ card.quantity || 1 }}</p>
+              <p>Edición: {{ card.edition || 'First Edition' }}</p>
+              <p>Idioma: {{ card.language || 'English' }}</p>
+              <p>Foil: {{ card.foil ? 'Sí' : 'No' }}</p>
+              <p>Precio: {{ card.price || 0 }}€</p>
+            </ion-label>
+            @if (isOwnProfile) {
+              <div class="card-actions">
+                <ion-button fill="clear" size="small" (click)="editCard(card, 'sells')">
+                  <ion-icon slot="icon-only" name="create"></ion-icon>
+                </ion-button>
+                <ion-button fill="clear" size="small" color="danger" (click)="removeCardFromSells(card.cardId)">
+                  <ion-icon slot="icon-only" name="trash"></ion-icon>
+                </ion-button>
+              </div>
+            }
+          </ion-item>
+        }
+      </div>
+    } @else {
+      <div class="ion-text-center ion-padding">
+        <p>No hay cartas en la lista de Sells</p>
+      </div>
+    }
+  }
+
+  @if (activeSegment === 'transactions') {
+    <h2>Transacciones</h2>
+    @if (transactions.length > 0) {
+      <div class="user-transactions">
+        @for (tx of transactions; track tx._id) {
+          <ion-item class="transaction-item">
+            <ion-label class="transaction-label">
+              <h2>Transacción con {{ tx.buyerId === currentUserId ? tx.sellerUsername : tx.buyerUsername }}</h2>
+              <p>Estado: {{ tx.status === 'pending' ? 'Pendiente' : 'Completada' }}</p>
+              <p>Fecha: {{ tx.createdAt | date:'dd/MM/yyyy HH:mm' }}</p>
+
+              @if (tx.buyerWants.length > 0) {
+                <p><strong>Cartas que quieres:</strong></p>
+                <ul>
+                  @for (card of tx.buyerWants; track card.cardId) {
+                    <li>{{ card.cardName }}</li>
+                  }
+                </ul>
+              }
+
+              @if (tx.sellerWants.length > 0) {
+                <p><strong>Cartas que ofreces:</strong></p>
+                <ul>
+                  @for (card of tx.sellerWants; track card.cardId) {
+                    <li>{{ card.cardName }}</li>
+                  }
+                </ul>
+              }
+            </ion-label>
+
+            @if (tx.status === 'completed' && isOwnProfile) {
+              @if ((tx.buyerId === currentUserId && !tx.buyerReview) ||
+              (tx.sellerId === currentUserId && !tx.sellerReview)) {
+                <ion-button class="review-button"
+                            color="tertiary"
+                            (click)="openReviewModal(tx)">
+                  Valorar
+                </ion-button>
+              }
+            }
+
+            @if (tx.status === 'pending' && isOwnProfile &&
+            ((tx.buyerId === currentUserId && !tx.buyerConfirmed) ||
+              (tx.sellerId === currentUserId && !tx.sellerConfirmed))) {
+              <ion-button class="review-button"
+                          color="tertiary"
+                          (click)="confirmTransaction(tx._id)">
+                Confirmar
+              </ion-button>
+            }
+
+            @if (tx.status === 'pending') {
+              <ion-badge color="warning">
+                {{ getConfirmationStatus(tx) }}
+              </ion-badge>
+            }
+
+            @if (tx.status === 'completed') {
+              <ion-badge color="success">
+                Completada
+              </ion-badge>
+            }
+          </ion-item>
+        }
+      </div>
+    } @else {
+      <div class="ion-text-center ion-padding">
+        <p>No hay transacciones</p>
+      </div>
+    }
+  }
+
+  @if (activeSegment === 'reviews') {
+    <h2>Valoraciones</h2>
+
+    @if (reviews.length === 0) {
+      <div class="ion-text-center ion-padding">
+        <p>No hay valoraciones todavía</p>
+      </div>
+    } @else {
+      <div class="user-reviews">
+        @for (review of reviews; track review.date) {
+          <ion-card class="review-item">
+            <ion-card-header>
+              <ion-card-title>
+                <div class="ion-float-end review-stars">
+                  @for (star of [1, 2, 3, 4, 5]; track star) {
+                    <ion-icon [name]="star <= review.rating ? 'star' : 'star-outline'"></ion-icon>
+                  }
+                </div>
+                {{ review.fromUsername }}
+              </ion-card-title>
+              <ion-card-subtitle class="review-date">
+                {{ review.date | date:'dd/MM/yyyy' }}
+              </ion-card-subtitle>
+            </ion-card-header>
+
+            <ion-card-content>
+              @if (review.comment) {
+                <p>{{ review.comment }}</p>
+              } @else {
+                <p class="ion-text-italic">Sin comentarios</p>
+              }
+
+              <div class="transaction-details">
+                <p><strong>Cartas intercambiadas:</strong></p>
+                @if (review.cards && review.cards.length > 0) {
+                  <ul>
+                    @for (card of review.cards; track card.cardId) {
+                      <li>{{ card.cardName }}</li>
+                    }
+                  </ul>
+                } @else {
+                  <p>Ninguna carta registrada</p>
+                }
+              </div>
+            </ion-card-content>
+          </ion-card>
+        }
+      </div>
+    }
+  }
+
+  <ion-modal [isOpen]="isModalOpen">
+    <ng-template>
+      <ion-header>
+        <ion-toolbar>
+          <ion-title>Editar {{ editingCard?.cardName }}</ion-title>
+          <ion-buttons slot="end">
+            <ion-button (click)="closeModal()">
+              <ion-icon slot="icon-only" name="close"></ion-icon>
+            </ion-button>
+          </ion-buttons>
+        </ion-toolbar>
+      </ion-header>
+      @if (editingCard) {
+        <ion-content class="ion-padding">
+          <ion-item>
+            <ion-label position="floating">Cantidad</ion-label>
+            <ion-input type="number" [(ngModel)]="editingCard.quantity" min="1"></ion-input>
+          </ion-item>
+
+          <ion-item>
+            <ion-label>Edición</ion-label>
+            <ion-select [(ngModel)]="editingCard.edition" (ionChange)="onEditionChange($event)">
+              @for (edition of editions; track edition) {
+                <ion-select-option [value]="edition">{{ edition }}</ion-select-option>
+              }
+            </ion-select>
+          </ion-item>
+
+          <ion-item>
+            <ion-label>Idioma</ion-label>
+            <ion-select [(ngModel)]="editingCard.language">
+              @for (language of languages; track language) {
+                <ion-select-option [value]="language">{{ language }}</ion-select-option>
+              }
+            </ion-select>
+          </ion-item>
+
+          <ion-item>
+            <ion-label>Foil</ion-label>
+            <ion-toggle [(ngModel)]="editingCard.foil"></ion-toggle>
+          </ion-item>
+
+          <ion-item>
+            <ion-label position="floating">Precio (€)</ion-label>
+            <ion-input type="number" [(ngModel)]="editingCard.price" min="0" step="0.01"></ion-input>
+          </ion-item>
+
+          <ion-grid>
+            <ion-row>
+              <ion-col>
+                <ion-button expand="block" (click)="saveCardChanges()">Guardar</ion-button>
+              </ion-col>
+              <ion-col>
+                <ion-button expand="block" color="danger" (click)="closeModal()">Cancelar</ion-button>
+              </ion-col>
+            </ion-row>
+          </ion-grid>
+        </ion-content>
+      }
+    </ng-template>
+  </ion-modal>
+
+  <ion-modal [isOpen]="reviewModalOpen">
+    <ng-template>
+      <ion-header>
+        <ion-toolbar>
+          <ion-title>Valorar transacción</ion-title>
+          <ion-buttons slot="end">
+            <ion-button (click)="closeReviewModal()">Cerrar</ion-button>
+          </ion-buttons>
+        </ion-toolbar>
+      </ion-header>
+      <ion-content class="ion-padding">
+        <h2>Valora tu experiencia con {{ currentReviewTransaction?.buyerId === currentUserId ?
+          currentReviewTransaction?.sellerUsername : currentReviewTransaction?.buyerUsername }}</h2>
+
+        <div class="rating-stars">
+          @for (i of [1, 2, 3, 4, 5]; track i) {
+            <ion-icon
+              [name]="i <= currentReviewRating ? 'star' : 'star-outline'"
+              class="star-icon"
+              (click)="setReviewRating(i)">
+            </ion-icon>
+          }
+          <p>{{ currentReviewRating }} de 5 estrellas</p>
+        </div>
+
+        <ion-item>
+          <ion-label position="floating">Comentario (opcional)</ion-label>
+          <ion-textarea [(ngModel)]="currentReviewComment" name="reviewComment" rows="4"></ion-textarea>
+        </ion-item>
+
+        <ion-button expand="block" [disabled]="!currentReviewRating" (click)="submitReview()" class="ion-margin-top">
+          Enviar valoración
+        </ion-button>
+      </ion-content>
+    </ng-template>
+  </ion-modal>
+
+  @if (cartaPreview) {
+    <div class="card-preview" [style.top.px]="previewPosition.top" [style.left.px]="previewPosition.left">
+      <img [src]="cartaPreview.image_uris?.small || cartaPreview.card_faces?.[0]?.image_uris?.small" alt="{{ cartaPreview.name }}">
+    </div>
+  }
+</ion-content>
