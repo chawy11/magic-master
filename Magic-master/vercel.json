@@ -2,17 +2,18 @@
   "version": 2,
   "builds": [
     {
-      "src": "Front/magic-trading-app/package.json",
+      "src": "Magic-master/Front/magic-trading-app/package.json",
       "use": "@vercel/static-build",
       "config": {
-        "distDir": "dist/magic-trading-app"
+        "distDir": "dist/magic-trading-app",
+        "buildCommand": "cd Magic-master/Front/magic-trading-app && npm install && npm run build"
       }
     }
   ],
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "/Front/magic-trading-app/dist/magic-trading-app/index.html"
+      "dest": "/Magic-master/Front/magic-trading-app/dist/magic-trading-app/index.html"
     }
   ]
 }
