@@ -1,6 +1,10 @@
 {
   "dependencies": {
     "@types/node": "^22.15.3",
-    "buffer": "^6.0.3"
+    "buffer": "^6.0.3",
+    "@angular/cli": "^19.0.0"
+  },
+  "scripts": {
+    "build": "cd Front/magic-trading-app && npm install && npm run build"
   }
 }
