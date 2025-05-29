@@ -6,6 +6,8 @@ import { routes } from './app/app.routes';
 import { AppComponent } from './app/app.component';
 import {provideHttpClient, withFetch} from "@angular/common/http";
 
+document.documentElement.classList.add('dark');
+
 bootstrapApplication(AppComponent, {
   providers: [
     { provide: RouteReuseStrategy, useClass: IonicRouteStrategy },
