@@ -15,7 +15,7 @@ const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017';
 // En tu backend
 app.use(cors({
     origin: [
-        'https://magic-vault-deploy-chawy11s-projects.vercel.app',
+        'https://magic-vault-ee405.web.app/',
         'http://localhost:4200'
     ],
     credentials: true
