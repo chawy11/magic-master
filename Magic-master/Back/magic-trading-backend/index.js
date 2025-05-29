@@ -12,14 +12,29 @@ const JWT_SECRET = process.env.JWT_SECRET || 'secreto_temporal';
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017';
 
 // Middleware
+app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', 'https://magic-vault-ee405.web.app');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+    res.header('Access-Control-Allow-Credentials', 'true');
+
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
+
+    next();
+});
 // En tu backend
 app.use(cors({
     origin: [
         'https://magic-vault-ee405.web.app',
         'http://localhost:4200'
     ],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true
 }));
+app.options('*', cors());
 app.use(bodyParser.json());
 
 // Conexión a MongoDB
