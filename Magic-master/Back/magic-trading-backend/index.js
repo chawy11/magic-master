@@ -13,13 +13,15 @@ const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017';
 
 // En tu backend
 app.use(cors({
-    origin: [
-        'https://magic-vault-ee405.web.app',
-        'http://localhost:4200'
-    ],
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: true
+  origin: [
+    'https://magic-vault-ee405.web.app',
+    'https://magic-master-sigma.vercel.app',
+    'http://localhost:4200',
+    'http://localhost:8100'
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
 }));
 app.options('*', cors());
 app.use(bodyParser.json());
