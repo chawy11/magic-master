@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { AuthGuard } from './auth.guard'; // Importa el AuthGuard
+import { authGuard } from './auth.guard';
 
 export const routes: Routes = [
   {
@@ -13,27 +13,27 @@ export const routes: Routes = [
   {
     path: 'home',
     loadComponent: () => import('./home/home.page').then((m) => m.HomePage),
-    canActivate: [AuthGuard], // Protege la ruta home con el AuthGuard
+    canActivate: [authGuard],
   },
   {
     path: 'card-details/:id', // Ruta dinámica para los detalles de la carta
     loadComponent: () => import('./card-details/card-details.page').then((m) => m.CardDetailsPage),
-    canActivate: [AuthGuard], // Protege la ruta con el AuthGuard
+    canActivate: [authGuard],
   },
   {
     path: 'card-list', // Ruta para la lista de cartas
     loadComponent: () => import('./card-list/card-list.page').then((m) => m.CardListPage),
-    canActivate: [AuthGuard], // Protege la ruta con el AuthGuard
+    canActivate: [authGuard],
   },
   {
     path: 'profile',
     loadComponent: () => import('./profile/profile.page').then((m) => m.ProfilePage),
-    canActivate: [AuthGuard],
+    canActivate: [authGuard],
   },
   {
     path: 'profile/:username',
     loadComponent: () => import('./profile/profile.page').then(m => m.ProfilePage),
-    canActivate: [AuthGuard],
+    canActivate: [authGuard],
   },
   {
     path: '',

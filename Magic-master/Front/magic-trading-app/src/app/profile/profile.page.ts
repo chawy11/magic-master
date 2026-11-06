@@ -42,32 +42,7 @@ import { ActivatedRoute } from '@angular/router';
 import { ToastController } from '@ionic/angular/standalone';
 import {TransactionService} from "../services/transaction.service";
 import { getAvailableCards } from '../services/card-availability';
-
-interface Transaction {
-  _id: string;
-  buyerId: string;
-  sellerId: string;
-  buyerUsername: string;
-  sellerUsername: string;
-  buyerWants: any[];
-  sellerWants: any[];
-  status: string;
-  createdAt: Date;
-  completedAt?: Date;
-  buyerConfirmed?: boolean;
-  sellerConfirmed?: boolean;
-  buyerReview?: {
-    rating: number;
-    comment: string;
-    date: Date;
-  };
-  sellerReview?: {
-    rating: number;
-    comment: string;
-    date: Date;
-  };
-  reviewsCompleted?: boolean;
-}
+import { CreateTransactionRequest, Transaction } from '../models/transaction.models';
 
 @Component({
   selector: 'app-profile',
@@ -456,7 +431,7 @@ export class ProfilePage implements OnInit {
                   selectedPrint.name,
                   selectedPrint.set,
                   selectedPrint.set_name,
-                  parseFloat(price) || 0
+                  Number(price) || 0
                 ).subscribe(
                   () => {
                     this.loadProfile();
@@ -510,7 +485,7 @@ export class ProfilePage implements OnInit {
                   selectedPrint.name,
                   selectedPrint.set,
                   selectedPrint.set_name,
-                  parseFloat(price) || 0
+                  Number(price) || 0
                 ).subscribe(
                   () => {
                     this.loadProfile();
@@ -564,7 +539,7 @@ export class ProfilePage implements OnInit {
     if (this.printingsMap[selectedEdition]) {
       const selectedPrint = this.printingsMap[selectedEdition];
       const price = selectedPrint.prices?.eur || selectedPrint.prices?.usd || 0;
-      this.editingCard.price = parseFloat(price) || 0;
+      this.editingCard.price = Number(price) || 0;
 
       this.editingCard.setCode = selectedPrint.set;
     }
@@ -717,11 +692,13 @@ export class ProfilePage implements OnInit {
 
     console.log('Enviando transacción con sellerId:', this.viewedUserId);
 
-    this.transactionService.createTransaction(
-      this.viewedUserId,
+    const request: CreateTransactionRequest = {
+      sellerId: this.viewedUserId,
       buyerWants,
       sellerWants
-    ).subscribe(
+    };
+
+    this.transactionService.createTransaction(request).subscribe(
       (response: any) => {
         this.transactionMode = false;
         this.presentToast('Transacción propuesta correctamente');

@@ -1,45 +1,25 @@
-import { Injectable } from '@angular/core';
-import { CanActivate, ActivatedRouteSnapshot, RouterStateSnapshot, Router } from '@angular/router';
+import { inject } from '@angular/core';
+import { CanActivateFn, Router } from '@angular/router';
 import { AuthService } from './services/auth.service';
 import { ToastController } from '@ionic/angular/standalone';
 
-@Injectable({
-  providedIn: 'root',
-})
-export class AuthGuard implements CanActivate {
-  constructor(
-    private authService: AuthService,
-    private router: Router,
-    private toastController: ToastController
-  ) {}
+export const authGuard: CanActivateFn = async (_route, state) => {
+  const authService = inject(AuthService);
+  const router = inject(Router);
+  const toastController = inject(ToastController);
 
-  async canActivate(
-    route: ActivatedRouteSnapshot,
-    state: RouterStateSnapshot
-  ): Promise<boolean> {
-    // Verifica si el usuario está autenticado
-    if (this.authService.estaAutenticado()) {
-      return true; // Permite el acceso a la ruta
-    }
+  if (authService.estaAutenticado()) {
+    return true;
+  }
 
-    // Si no está autenticado:
-    // 1. Muestra un mensaje toast
-    const toast = await this.toastController.create({
+  const toast = await toastController.create({
       message: 'Debes iniciar sesión para acceder a esta página',
       duration: 2000,
       position: 'bottom'
-    });
-    await toast.present();
+  });
+  await toast.present();
 
-    // 2. Guarda la URL original para volver después del login
-    const redirectUrl = state.url;
-
-    // 3. Redirige al usuario a la página de login
-    this.router.navigate(['/login'], {
-      queryParams: { returnUrl: redirectUrl }
-    });
-
-    // 4. Deniega el acceso a la ruta
-    return false;
-  }
-}
+  return router.createUrlTree(['/login'], {
+    queryParams: { returnUrl: state.url }
+  });
+};
