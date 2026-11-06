@@ -252,7 +252,10 @@
           <ion-item class="transaction-item">
             <ion-label class="transaction-label">
               <h2>Transacción con {{ tx.buyerId === currentUserId ? tx.sellerUsername : tx.buyerUsername }}</h2>
-              <p>Estado: {{ tx.status === 'pending' ? 'Pendiente' : 'Completada' }}</p>
+              <p>Estado: {{
+                tx.status === 'pending' ? 'Pendiente' :
+                tx.status === 'cancelled' ? 'Cancelada' : 'Completada'
+              }}</p>
               <p>Fecha: {{ tx.createdAt | date:'dd/MM/yyyy HH:mm' }}</p>
 
               @if (tx.buyerWants.length > 0) {
@@ -292,6 +295,15 @@
                           color="tertiary"
                           (click)="confirmTransaction(tx._id)">
                 Confirmar
+              </ion-button>
+            }
+
+            @if (tx.status === 'pending' && isOwnProfile) {
+              <ion-button class="review-button"
+                          color="danger"
+                          fill="outline"
+                          (click)="cancelTransaction(tx._id)">
+                Cancelar
               </ion-button>
             }
 

@@ -1,33 +1,60 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const { MongoClient, ObjectId } = require('mongodb');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { availableCards, transactionCardFilter } = require('./transaction.utils');
 require('dotenv').config();
 
 const app = express();
 const port = process.env.PORT || 3000;
-const JWT_SECRET = process.env.JWT_SECRET || 'secreto_temporal';
+const JWT_SECRET = process.env.JWT_SECRET;
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017';
+const allowedOrigins = (process.env.CORS_ORIGINS ||
+    'https://magic-vault-ee405.web.app,https://magic-master-sigma.vercel.app,http://localhost:4200,http://localhost:8100')
+    .split(',')
+    .map(origin => origin.trim())
+    .filter(Boolean);
 
-// En tu backend
+if (!JWT_SECRET && process.env.NODE_ENV === 'production') {
+    throw new Error('JWT_SECRET es obligatorio en producción');
+}
+
+const signingSecret = JWT_SECRET || 'development-only-secret-change-me';
+
 app.use(cors({
-  origin: [
-    'https://magic-vault-ee405.web.app',
-    'https://magic-master-sigma.vercel.app',
-    'http://localhost:4200',
-    'http://localhost:8100'
-  ],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
+    origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+        return callback(new Error('Origen no permitido por CORS'));
+    },
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
 }));
-app.options('*', cors());
-app.use(bodyParser.json());
+app.use(helmet());
+app.use(bodyParser.json({ limit: '100kb' }));
+app.use(rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 300,
+    standardHeaders: true,
+    legacyHeaders: false
+}));
 
 // Conexión a MongoDB
 const client = new MongoClient(MONGODB_URI);
+
+function isValidObjectId(value) {
+    return typeof value === 'string' && ObjectId.isValid(value);
+}
+
+function availableSells(user) {
+    return availableCards(user?.sells || []);
+}
 
 async function connect() {
     try {
@@ -132,11 +159,11 @@ app.post('/api/login', async (req, res) => {
         // Generar un token JWT
         const token = jwt.sign(
             {
-                id: usuarioEncontrado._id,
+                id: usuarioEncontrado._id.toString(),
                 usuario: usuarioEncontrado.usuario
             },
-            JWT_SECRET,
-            { expiresIn: '1h' }
+                signingSecret,
+                { expiresIn: '1h', algorithm: 'HS256' }
         );
 
         res.status(200).json({
@@ -159,7 +186,7 @@ function authenticateToken(req, res, next) {
         return res.status(401).json({ message: 'No se proporcionó token de autenticación' });
     }
 
-    jwt.verify(token, JWT_SECRET, (err, user) => {
+    jwt.verify(token, signingSecret, { algorithms: ['HS256'] }, (err, user) => {
         if (err) {
             return res.status(403).json({ message: 'Token inválido o expirado' });
         }
@@ -176,7 +203,7 @@ app.get('/api/user/:username', async (req, res) => {
     const collection = db.collection('usuarios');
 
     try {
-        const user = await collection.findOne({ usuario: username }, { projection: { password: 0 } });
+        const user = await collection.findOne({ usuario: username }, { projection: { password: 0, email: 0 } });
         if (!user) {
             return res.status(404).json({ message: 'Usuario no encontrado' });
         }
@@ -208,7 +235,7 @@ app.get('/api/profile/:username', async (req, res) => {
             _id: user._id, // Asegúrate de incluir el ID
             usuario: user.usuario,
             wants: user.wants || [],
-            sells: user.sells || []
+            sells: availableSells(user)
         });
     } catch (err) {
         console.error('Error al obtener perfil:', err);
@@ -241,24 +268,23 @@ app.get('/api/matches/:username', authenticateToken, async (req, res) => {
         // Calculate matches (their sells match your wants)
         const wantsMatches = currentUserProfile.wants ?
             currentUserProfile.wants.filter(wantCard =>
-                    otherUserProfile.sells && otherUserProfile.sells.some(sellCard =>
+                    availableSells(otherUserProfile).some(sellCard =>
                         sellCard.cardName === wantCard.cardName
                     )
             ).length : 0;
 
         // Calculate matches (your sells match their wants)
-        const sellsMatches = currentUserProfile.sells ?
-            currentUserProfile.sells.filter(sellCard =>
-                    otherUserProfile.wants && otherUserProfile.wants.some(wantCard =>
-                        wantCard.cardName === sellCard.cardName
-                    )
-            ).length : 0;
+        const sellsMatches = availableSells(currentUserProfile).filter(sellCard =>
+            otherUserProfile.wants && otherUserProfile.wants.some(wantCard =>
+                wantCard.cardName === sellCard.cardName
+            )
+        ).length;
 
         res.json({
             wantsMatches,
             wantsTotal: currentUserProfile.wants ? currentUserProfile.wants.length : 0,
             sellsMatches,
-            sellsTotal: currentUserProfile.sells ? currentUserProfile.sells.length : 0
+            sellsTotal: availableSells(currentUserProfile).length
         });
     } catch (error) {
         console.error('Error getting matches:', error);
@@ -287,14 +313,14 @@ app.get('/api/matches/:username/cards', authenticateToken, async (req, res) => {
         }
 
         // Cartas que el usuario actual tiene y que coinciden con wants del otro usuario
-        const myMatchingCards = (currentUser.sells || []).filter(myCard =>
+        const myMatchingCards = availableSells(currentUser).filter(myCard =>
             (otherUser.wants || []).some(theirWant =>
                 myCard.cardName === theirWant.cardName
             )
         );
 
         // Cartas que el otro usuario tiene y que coinciden con wants del usuario actual
-        const theirMatchingCards = (otherUser.sells || []).filter(theirCard =>
+        const theirMatchingCards = availableSells(otherUser).filter(theirCard =>
             (currentUser.wants || []).some(myWant =>
                 myWant.cardName === theirCard.cardName
             )
@@ -313,6 +339,9 @@ app.get('/api/matches/:username/cards', authenticateToken, async (req, res) => {
 // En index.js
 app.get('/api/transactions', authenticateToken, async (req, res) => {
     const userId = req.user.id;
+    if (!isValidObjectId(userId)) {
+        return res.status(401).json({ message: 'Token no válido' });
+    }
 
     const db = client.db('magic_trading');
     const transactionsCollection = db.collection('transactions');
@@ -338,9 +367,20 @@ app.post('/api/transaction/create', authenticateToken, async (req, res) => {
     const { sellerId, buyerWants, sellerWants } = req.body;
     const buyerId = req.user.id;
 
+    if (!isValidObjectId(sellerId) || sellerId === buyerId) {
+        return res.status(400).json({ message: 'El usuario destinatario no es válido' });
+    }
+
+    if (!Array.isArray(buyerWants) || !Array.isArray(sellerWants) ||
+        (buyerWants.length === 0 && sellerWants.length === 0)) {
+        return res.status(400).json({ message: 'Debes seleccionar al menos una carta' });
+    }
+
     const db = client.db('magic_trading');
     const transactionsCollection = db.collection('transactions');
     const usersCollection = db.collection('usuarios');
+    const lockedCards = [];
+    let transactionResult;
 
     try {
         // Obtener información de los usuarios
@@ -351,44 +391,74 @@ app.post('/api/transaction/create', authenticateToken, async (req, res) => {
             return res.status(404).json({ message: 'Usuario no encontrado' });
         }
 
-        // Crear la transacción (soporta tanto compra, venta o ambas)
-        const result = await transactionsCollection.insertOne({
+        const buyerCardIds = new Set((sellerWants || []).map(card => card.cardId));
+        const sellerCardIds = new Set((buyerWants || []).map(card => card.cardId));
+        if (buyerCardIds.size !== sellerWants.length ||
+            sellerCardIds.size !== buyerWants.length ||
+            [...buyerCardIds].some(cardId => !cardId) ||
+            [...sellerCardIds].some(cardId => !cardId)) {
+            return res.status(400).json({ message: 'La selección contiene cartas inválidas' });
+        }
+
+        const resolveCards = (requestedCards, owner) => {
+            const availableById = new Map(
+                availableSells(owner).map(card => [card.cardId, card])
+            );
+            return requestedCards.map(card => availableById.get(card.cardId)).filter(Boolean);
+        };
+        const sellerCards = resolveCards(buyerWants, seller);
+        const buyerCards = resolveCards(sellerWants, buyer);
+        if (sellerCards.length !== buyerWants.length || buyerCards.length !== sellerWants.length) {
+            return res.status(409).json({ message: 'Una o más cartas ya no están disponibles' });
+        }
+
+        transactionResult = await transactionsCollection.insertOne({
             buyerId: new ObjectId(buyerId),
             sellerId: new ObjectId(sellerId),
             buyerUsername: buyer.usuario,
             sellerUsername: seller.usuario,
-            buyerWants: buyerWants || [],  // Lo que el comprador quiere (del vendedor)
-            sellerWants: sellerWants || [], // Lo que el vendedor quiere (del comprador)
+            buyerWants: sellerCards,
+            sellerWants: buyerCards,
             buyerConfirmed: false,
             sellerConfirmed: false,
             status: 'pending',
             createdAt: new Date()
         });
 
-        // Marcar las cartas como en transacción
-        if (buyerWants && buyerWants.length > 0) {
-            for (const card of buyerWants) {
-                await usersCollection.updateOne(
-                    { _id: new ObjectId(sellerId), "sells.cardId": card.cardId },
-                    { $set: { "sells.$.inTransaction": true } }
-                );
+    const lockCards = async (ownerId, cards) => {
+        for (const card of cards) {
+            const lockResult = await usersCollection.updateOne(
+                { _id: new ObjectId(ownerId), sells: { $elemMatch: transactionCardFilter(card.cardId) } },
+                { $set: { 'sells.$.inTransaction': true, 'sells.$.transactionId': transactionResult.insertedId } }
+            );
+            if (lockResult.modifiedCount !== 1) {
+                throw new Error(`La carta ${card.cardId} ya no está disponible`);
             }
+            lockedCards.push({ ownerId, cardId: card.cardId });
         }
+    };
 
-        if (sellerWants && sellerWants.length > 0) {
-            for (const card of sellerWants) {
-                await usersCollection.updateOne(
-                    { _id: new ObjectId(buyerId), "sells.cardId": card.cardId },
-                    { $set: { "sells.$.inTransaction": true } }
-                );
-            }
-        }
+    await lockCards(sellerId, buyerWants);
+    await lockCards(buyerId, sellerWants);
 
-        res.status(201).json({
-            message: 'Transacción creada correctamente',
-            transactionId: result.insertedId
-        });
+    res.status(201).json({
+        message: 'Transacción creada correctamente',
+        transactionId: transactionResult.insertedId
+    });
     } catch (error) {
+        for (const lockedCard of lockedCards) {
+            await usersCollection.updateOne(
+                { _id: new ObjectId(lockedCard.ownerId) },
+                { $set: { 'sells.$[card].inTransaction': false }, $unset: { 'sells.$[card].transactionId': '' } },
+                { arrayFilters: [{ 'card.cardId': lockedCard.cardId, 'card.transactionId': transactionResult?.insertedId }] }
+            );
+        }
+        if (typeof transactionResult !== 'undefined') {
+            await transactionsCollection.deleteOne({ _id: transactionResult.insertedId });
+        }
+        if (error.message.includes('ya no está disponible')) {
+            return res.status(409).json({ message: error.message });
+        }
         console.error('Error al crear transacción:', error);
         res.status(500).json({ message: 'Error al crear transacción' });
     }
@@ -398,6 +468,10 @@ app.post('/api/transaction/create', authenticateToken, async (req, res) => {
 app.put('/api/transaction/:id/confirm', authenticateToken, async (req, res) => {
     const transactionId = req.params.id;
     const userId = req.user.id;
+
+    if (!isValidObjectId(transactionId) || !isValidObjectId(userId)) {
+        return res.status(400).json({ message: 'Identificador no válido' });
+    }
 
     const db = client.db('magic_trading');
     const transactionsCollection = db.collection('transactions');
@@ -409,7 +483,8 @@ app.put('/api/transaction/:id/confirm', authenticateToken, async (req, res) => {
             $or: [
                 { buyerId: new ObjectId(userId) },
                 { sellerId: new ObjectId(userId) }
-            ]
+            ],
+            status: 'pending'
         });
 
         if (!transaction) {
@@ -423,7 +498,7 @@ app.put('/api/transaction/:id/confirm', authenticateToken, async (req, res) => {
         const updateField = isBuyer ? 'buyerConfirmed' : 'sellerConfirmed';
 
         await transactionsCollection.updateOne(
-            { _id: new ObjectId(transactionId) },
+            { _id: new ObjectId(transactionId), [updateField]: false },
             { $set: { [updateField]: true } }
         );
 
@@ -472,15 +547,75 @@ app.put('/api/transaction/:id/confirm', authenticateToken, async (req, res) => {
                     );
                 }
             }
+
+            await usersCollection.updateMany(
+                {},
+                {
+                    $set: { 'sells.$[card].inTransaction': false },
+                    $unset: { 'sells.$[card].transactionId': '' }
+                },
+                {
+                    arrayFilters: [
+                        { 'card.transactionId': new ObjectId(transactionId) }
+                    ]
+                }
+            );
         }
 
         res.status(200).json({
             message: 'Confirmación registrada',
             transactionCompleted: (updatedTransaction.buyerConfirmed && updatedTransaction.sellerConfirmed)
         });
+
     } catch (error) {
         console.error('Error al confirmar transacción:', error);
         res.status(500).json({ message: 'Error al confirmar transacción' });
+    }
+});
+
+app.put('/api/transaction/:id/cancel', authenticateToken, async (req, res) => {
+    const transactionId = req.params.id;
+    const userId = req.user.id;
+
+    if (!isValidObjectId(transactionId) || !isValidObjectId(userId)) {
+        return res.status(400).json({ message: 'Identificador de transacción no válido' });
+    }
+
+    const db = client.db('magic_trading');
+    const transactionsCollection = db.collection('transactions');
+    const usersCollection = db.collection('usuarios');
+
+    try {
+        const transaction = await transactionsCollection.findOneAndUpdate(
+            {
+                _id: new ObjectId(transactionId),
+                status: 'pending',
+                $or: [
+                    { buyerId: new ObjectId(userId) },
+                    { sellerId: new ObjectId(userId) }
+                ]
+            },
+            { $set: { status: 'cancelled', cancelledAt: new Date(), cancelledBy: new ObjectId(userId) } },
+            { returnDocument: 'after' }
+        );
+
+        if (!transaction) {
+            return res.status(404).json({ message: 'Transacción no encontrada o ya finalizada' });
+        }
+
+        await usersCollection.updateMany(
+            {},
+            {
+                $set: { 'sells.$[card].inTransaction': false },
+                $unset: { 'sells.$[card].transactionId': '' }
+            },
+            { arrayFilters: [{ 'card.transactionId': new ObjectId(transactionId) }] }
+        );
+
+        return res.status(200).json({ message: 'Transacción cancelada correctamente' });
+    } catch (error) {
+        console.error('Error al cancelar transacción:', error);
+        return res.status(500).json({ message: 'Error al cancelar transacción' });
     }
 });
 
@@ -557,7 +692,7 @@ app.post('/api/transaction/:id/review', authenticateToken, async (req, res) => {
 app.get('/api/user/reviews', authenticateToken, async (req, res) => {
     try {
         // Nota: Cambiamos req.user.id por req.user._id
-        const userId = req.user._id;
+        const userId = req.user.id;
 
         if (!userId) {
             return res.status(404).json({ message: 'Usuario no encontrado' });
@@ -570,17 +705,15 @@ app.get('/api/user/reviews', authenticateToken, async (req, res) => {
 
         // Asegúrate de comparar con el mismo tipo de datos
         const { ObjectId } = require('mongodb');
-        const objectId = new ObjectId(userId);
-
         // Buscar transacciones usando ObjectId
         const sellerReviews = await transactionsCollection.find({
-            sellerId: userId, // o objectId si usas ObjectId
+            sellerId: new ObjectId(userId),
             status: 'completed',
             buyerReview: { $exists: true }
         }).toArray();
 
         const buyerReviews = await transactionsCollection.find({
-            buyerId: userId, // o objectId si usas ObjectId
+            buyerId: new ObjectId(userId),
             status: 'completed',
             sellerReview: { $exists: true }
         }).toArray();
@@ -725,8 +858,8 @@ app.put('/api/user/sells/:cardId', authenticateToken, async (req, res) => {
     const collection = db.collection('usuarios');
 
     try {
-        await collection.updateOne(
-            { _id: new ObjectId(userId), "sells.cardId": cardId },
+        const result = await collection.updateOne(
+            { _id: new ObjectId(userId), sells: { $elemMatch: transactionCardFilter(cardId) } },
             { $set: {
                     "sells.$.quantity": quantity,
                     "sells.$.edition": edition,
@@ -737,6 +870,9 @@ app.put('/api/user/sells/:cardId', authenticateToken, async (req, res) => {
                 } }
         );
 
+        if (result.matchedCount === 0) {
+            return res.status(409).json({ message: 'La carta no existe o está bloqueada por una transacción' });
+        }
         res.status(200).json({ message: 'Carta actualizada en sells' });
     } catch (err) {
         console.error('Error al actualizar carta:', err);
@@ -774,11 +910,14 @@ app.delete('/api/user/sells/:cardId', authenticateToken, async (req, res) => {
     const collection = db.collection('usuarios');
 
     try {
-        await collection.updateOne(
-            { _id: new ObjectId(userId) },
-            { $pull: { sells: { cardId } } }
+        const result = await collection.updateOne(
+            { _id: new ObjectId(userId), sells: { $elemMatch: transactionCardFilter(cardId) } },
+            { $pull: { sells: transactionCardFilter(cardId) } }
         );
 
+        if (result.modifiedCount === 0) {
+            return res.status(409).json({ message: 'La carta no existe o está bloqueada por una transacción' });
+        }
         res.status(200).json({ message: 'Carta eliminada de sells' });
     } catch (err) {
         console.error('Error al eliminar carta:', err);
@@ -803,7 +942,7 @@ app.get('/api/user/profile/me', authenticateToken, async (req, res) => {
             return res.status(404).json({ message: 'Usuario no encontrado' });
         }
 
-        res.status(200).json(user);
+        res.status(200).json({ ...user, sells: availableSells(user) });
     } catch (err) {
         console.error('Error al obtener perfil:', err);
         res.status(500).json({ message: 'Error al obtener perfil' });
