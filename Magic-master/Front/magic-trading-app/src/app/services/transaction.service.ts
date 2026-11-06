@@ -1,48 +1,42 @@
-
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import {environment} from "../../environments/environment";
+import { environment } from '../../environments/environment';
+import { CreateTransactionRequest, Transaction } from '../models/transaction.models';
 
 @Injectable({
   providedIn: 'root'
 })
 export class TransactionService {
-  private apiUrl = environment.apiUrl;
+  private readonly apiUrl = environment.apiUrl;
 
-  constructor(private http: HttpClient) {}
+  constructor(private readonly http: HttpClient) {}
 
-  private getHeaders(): HttpHeaders {
-    const token = localStorage.getItem('token');
-    return new HttpHeaders({
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
-    });
-  }
-
-  createTransaction(sellerId: string, buyerWants: any[], sellerWants: any[]): Observable<any> {
-    return this.http.post(`${this.apiUrl}/transaction/create`,
-      { sellerId, buyerWants, sellerWants },
-      { headers: this.getHeaders() }
+  createTransaction(request: CreateTransactionRequest): Observable<{ transactionId: string }> {
+    return this.http.post<{ transactionId: string }>(
+      `${this.apiUrl}/transaction/create`,
+      request
     );
   }
 
-  getMyTransactions(): Observable<any> {
-    return this.http.get(`${this.apiUrl}/transactions`,
-      { headers: this.getHeaders() }
+  getMyTransactions(): Observable<Transaction[]> {
+    return this.http.get<Transaction[]>(`${this.apiUrl}/transactions`);
+  }
+
+  confirmTransaction(transactionId: string): Observable<{ transactionCompleted: boolean }> {
+    return this.http.put<{ transactionCompleted: boolean }>(
+      `${this.apiUrl}/transaction/${transactionId}/confirm`, {}
     );
   }
 
-  confirmTransaction(transactionId: string): Observable<any> {
-    return this.http.put(`${this.apiUrl}/transaction/${transactionId}/confirm`, {}, { headers: this.getHeaders() });
+  cancelTransaction(transactionId: string): Observable<void> {
+    return this.http.put<void>(`${this.apiUrl}/transaction/${transactionId}/cancel`, {});
   }
 
-  addReview(transactionId: string, rating: number, comment: string): Observable<any> {
-    return this.http.post(
+  addReview(transactionId: string, rating: number, comment: string): Observable<void> {
+    return this.http.post<void>(
       `${this.apiUrl}/transaction/${transactionId}/review`,
-      { rating, comment },
-      { headers: this.getHeaders() }
+      { rating, comment }
     );
   }
-
 }

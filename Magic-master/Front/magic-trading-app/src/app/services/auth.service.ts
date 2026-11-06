@@ -3,17 +3,18 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { catchError, throwError, Observable } from 'rxjs';
 import {environment} from "../../environments/environment";
+import { LoginCredentials, LoginResponse, RegistrationRequest } from '../models/auth.models';
 
 @Injectable({
   providedIn: 'root',
 })
 export class AuthService {
-  private apiUrl = environment.apiUrl;
+  private readonly apiUrl = environment.apiUrl;
 
   constructor(private http: HttpClient, private router: Router) {}
 
-  registrar(usuario: any) {
-    return this.http.post(`${this.apiUrl}/registro`, usuario).pipe(
+  registrar(usuario: RegistrationRequest): Observable<void> {
+    return this.http.post<void>(`${this.apiUrl}/registro`, usuario).pipe(
       catchError((error: HttpErrorResponse) => {
         let errorMessage = 'Ocurrió un error inesperado';
         if (error.status === 400) {
@@ -28,13 +29,13 @@ export class AuthService {
     );
   }
 
-  login(credenciales: any): Observable<any> {
-    return this.http.post(`${this.apiUrl}/login`, credenciales).pipe(
+  login(credenciales: LoginCredentials): Observable<LoginResponse> {
+    return this.http.post<LoginResponse>(`${this.apiUrl}/login`, credenciales).pipe(
       catchError(this.handleError)
     );
   }
 
-  guardarToken(token: string, usuario: string) {
+  guardarToken(token: string, usuario: string): void {
     localStorage.setItem('token', token);
     localStorage.setItem('usuario', usuario);
   }
@@ -43,13 +44,13 @@ export class AuthService {
     return !!localStorage.getItem('token');
   }
 
-  cerrarSesion() {
+  cerrarSesion(): void {
     localStorage.removeItem('token');
     localStorage.removeItem('usuario');
     localStorage.removeItem('userId');
 
 
-    window.location.href = '/login';
+    void this.router.navigate(['/login']);
   }
 
   getUsuarioActual(): string {

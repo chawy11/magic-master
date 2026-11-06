@@ -120,7 +120,7 @@ export class CardDetailsPage implements OnInit {
                   selectedPrint.name,
                   selectedPrint.set,
                   selectedPrint.set_name,
-                  parseFloat(price) || 0
+                  Number(price) || 0
                 ).subscribe(
                   () => this.presentToast('Carta añadida a wants correctamente'),
                   error => {
@@ -174,7 +174,7 @@ export class CardDetailsPage implements OnInit {
                   selectedPrint.name,
                   selectedPrint.set,
                   selectedPrint.set_name,
-                  parseFloat(price) || 0
+                  Number(price) || 0
                 ).subscribe(
                   () => this.presentToast('Carta añadida a sells correctamente'),
                   error => {

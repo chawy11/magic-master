@@ -41,32 +41,8 @@ import {RouterLink} from "@angular/router";
 import { ActivatedRoute } from '@angular/router';
 import { ToastController } from '@ionic/angular/standalone';
 import {TransactionService} from "../services/transaction.service";
-
-interface Transaction {
-  _id: string;
-  buyerId: string;
-  sellerId: string;
-  buyerUsername: string;
-  sellerUsername: string;
-  buyerWants: any[];
-  sellerWants: any[];
-  status: string;
-  createdAt: Date;
-  completedAt?: Date;
-  buyerConfirmed?: boolean;
-  sellerConfirmed?: boolean;
-  buyerReview?: {
-    rating: number;
-    comment: string;
-    date: Date;
-  };
-  sellerReview?: {
-    rating: number;
-    comment: string;
-    date: Date;
-  };
-  reviewsCompleted?: boolean;
-}
+import { getAvailableCards } from '../services/card-availability';
+import { CreateTransactionRequest, Transaction } from '../models/transaction.models';
 
 @Component({
   selector: 'app-profile',
@@ -274,6 +250,20 @@ export class ProfilePage implements OnInit {
     );
   }
 
+  cancelTransaction(transactionId: string): void {
+    this.transactionService.cancelTransaction(transactionId).subscribe(
+      () => {
+        this.presentToast('Transacción cancelada');
+        this.loadTransactions();
+        this.loadProfile();
+      },
+      error => {
+        console.error('Error al cancelar transacción:', error);
+        this.presentToast(error.error?.message || 'Error al cancelar la transacción');
+      }
+    );
+  }
+
   getConfirmationStatus(transaction: any): string {
     const isBuyer = transaction.buyerId === this.currentUserId;
 
@@ -297,7 +287,7 @@ export class ProfilePage implements OnInit {
       data => {
         console.log('Datos recibidos del perfil:', data); // Para depuración
         this.wantsList = data.wants || [];
-        this.sellsList = data.sells || [];
+        this.sellsList = getAvailableCards(data.sells || []);
 
         if (data._id) {
           this.viewedUserId = data._id;
@@ -351,7 +341,7 @@ export class ProfilePage implements OnInit {
       (data) => {
         if (data) {
           this.wantsList = data.wants || [];
-          this.sellsList = data.sells || [];
+          this.sellsList = getAvailableCards(data.sells || []);
         }
       },
       error => console.error('Error al cargar el perfil:', error)
@@ -441,7 +431,7 @@ export class ProfilePage implements OnInit {
                   selectedPrint.name,
                   selectedPrint.set,
                   selectedPrint.set_name,
-                  parseFloat(price) || 0
+                  Number(price) || 0
                 ).subscribe(
                   () => {
                     this.loadProfile();
@@ -495,7 +485,7 @@ export class ProfilePage implements OnInit {
                   selectedPrint.name,
                   selectedPrint.set,
                   selectedPrint.set_name,
-                  parseFloat(price) || 0
+                  Number(price) || 0
                 ).subscribe(
                   () => {
                     this.loadProfile();
@@ -549,7 +539,7 @@ export class ProfilePage implements OnInit {
     if (this.printingsMap[selectedEdition]) {
       const selectedPrint = this.printingsMap[selectedEdition];
       const price = selectedPrint.prices?.eur || selectedPrint.prices?.usd || 0;
-      this.editingCard.price = parseFloat(price) || 0;
+      this.editingCard.price = Number(price) || 0;
 
       this.editingCard.setCode = selectedPrint.set;
     }
@@ -702,11 +692,13 @@ export class ProfilePage implements OnInit {
 
     console.log('Enviando transacción con sellerId:', this.viewedUserId);
 
-    this.transactionService.createTransaction(
-      this.viewedUserId,
+    const request: CreateTransactionRequest = {
+      sellerId: this.viewedUserId,
       buyerWants,
       sellerWants
-    ).subscribe(
+    };
+
+    this.transactionService.createTransaction(request).subscribe(
       (response: any) => {
         this.transactionMode = false;
         this.presentToast('Transacción propuesta correctamente');
